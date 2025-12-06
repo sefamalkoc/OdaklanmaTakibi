@@ -2,9 +2,8 @@ import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
-  AppStateStatus // <<-- SON HATA ÇÖZÜMÜ: Tipi buradan import ettik
+  AppStateStatus // <<-- Son hata çözümü için AppStateStatus tipi eklendi
   ,
-
   StyleSheet,
   Text,
   TouchableOpacity,
@@ -46,6 +45,7 @@ const Index = () => {
   const finalizeSession = (isCompleted: boolean) => {
     const focusedDuration = INITIAL_TIME - time; 
 
+    // 60 saniyeden (1 dakikadan) az odaklanma süresi kaydedilmez.
     if (focusedDuration < 60) {
         handleReset(false); 
         return; 
@@ -54,7 +54,7 @@ const Index = () => {
     const sessionData = {
         id: Date.now(),
         date: new Date().toISOString().split('T')[0], 
-        duration: Math.ceil(focusedDuration / 60), 
+        duration: Math.ceil(focusedDuration / 60), // Dakikaya çevirip yukarı yuvarla
         category: selectedCategory,
         distractionCount: distractionCount,
         isCompleted: isCompleted,
@@ -87,8 +87,9 @@ const Index = () => {
     
     handlePause(); 
     
+    // Yalnızca çalışıyorsa ve bir miktar süre geçmişse oturumu sonlandır
     if (shouldFinalize && wasRunning && initialTimeCheck) {
-        finalizeSession(false); 
+        finalizeSession(false); // Başarıyla tamamlanmadı
     }
 
     setTime(INITIAL_TIME); 
@@ -100,6 +101,7 @@ const Index = () => {
     if (!isRunning && time > 0) {
       setIsRunning(true); 
       
+      // setInterval'dan dönen değeri doğru tipe zorlamak için tip dönüştürme yapıldı
       timerRef.current = setInterval(() => {
         setTime(prevTime => {
           if (prevTime <= 1) {
@@ -107,7 +109,7 @@ const Index = () => {
                clearInterval(timerRef.current);
             }
             setIsRunning(false);
-            finalizeSession(true); 
+            finalizeSession(true); // Başarıyla tamamlandı
             return 0;
           }
           return prevTime - 1;
@@ -116,8 +118,9 @@ const Index = () => {
     }
   };
   
-  // nextAppState parametresine : AppStateStatus tipi atandı
+  // nextAppState parametresine : AppStateStatus tipi atandı (Son Hata Çözümü)
   const handleAppStateChange = (nextAppState: AppStateStatus) => {
+    // Uygulama aktifken arka plana geçerse (dikkat dağılması)
     if (isRunning && appState.current.match(/active/) && nextAppState === 'background') {
       
       handlePause(); 
@@ -126,6 +129,7 @@ const Index = () => {
       console.log('UYARI: Dikkat Dağınıklığı tespit edildi! Sayaç duraklatıldı.');
     }
     
+    // Uygulama arka plandan aktif hale gelirse
     if (!isRunning && appState.current.match(/background/) && nextAppState === 'active' && time > 0) {
         Alert.alert(
             "Geri Döndün!",
@@ -146,6 +150,7 @@ const Index = () => {
     const subscription = AppState.addEventListener('change', handleAppStateChange);
     
     return () => {
+      // Bileşen silinirse timer'ı temizle
       if (timerRef.current) {
         clearInterval(timerRef.current); 
       }
@@ -162,7 +167,8 @@ const Index = () => {
         <Text style={styles.label}>Kategori Seç:</Text>
         <Picker
           selectedValue={selectedCategory}
-          onValueChange={(itemValue: string) => setSelectedCategory(itemValue)}
+          // OnValueChange için tip ataması yapıldı
+          onValueChange={(itemValue: string) => setSelectedCategory(itemValue)} 
           style={styles.picker}
           enabled={!isRunning} 
         >
@@ -189,7 +195,7 @@ const Index = () => {
         
         <TouchableOpacity 
           style={styles.button} 
-          onPress={() => handleReset(true)} 
+          onPress={() => handleReset(true)} // Tipi sağlamak için Arrow Function kullanıldı
         >
           <Text style={styles.buttonText}>Sıfırla</Text>
         </TouchableOpacity>
