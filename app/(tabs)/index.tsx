@@ -1,278 +1,266 @@
+// app/(tabs)/index.tsx
 import React, { useEffect, useRef, useState } from 'react';
 import {
   Alert,
   AppState,
-  AppStateStatus // <<-- Son hata çözümü için AppStateStatus tipi eklendi
-  ,
+  AppStateStatus,
+  Modal,
+  SafeAreaView,
   StyleSheet,
   Text,
   TouchableOpacity,
   View
 } from 'react-native';
+import { saveSession, Session } from '../../src/utils/Storage';
 
-// TypeScript timer hatalarını çözmek için özel tip
-type TimerHandle = NodeJS.Timeout | null; 
+const INITIAL_TIME = 25 * 60; // saniye cinsinden
+const CATEGORIES = ['Ders Çalışma', 'Kodlama', 'Proje', 'Kitap Okuma'];
 
-// DOĞRU DOSYA YOLU
-import { saveSession } from '../../src/utils/Storage';
+let globalTimer: ReturnType<typeof setInterval> | null = null;
 
-// Picker kütüphanesi
-import { Picker } from '@react-native-picker/picker';
+export default function Index() {
+  const [displayTime, setDisplayTime] = useState<number>(INITIAL_TIME);
+  const [isRunning, setIsRunning] = useState<boolean>(false);
+  const [distractionCount, setDistractionCount] = useState<number>(0);
+  const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORIES[0]);
+  const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
 
+  const timeRef = useRef<number>(INITIAL_TIME);
+  const appState = useRef<AppStateStatus>(AppState.currentState);
 
-// Sabitler
-const INITIAL_TIME = 25 * 60; // 25 dakika
-const CATEGORIES = ["Ders Çalışma", "Kodlama", "Proje", "Kitap Okuma"]; 
+  useEffect(() => {
+    // cleanup on unmount
+    return () => {
+      if (globalTimer) {
+        clearInterval(globalTimer);
+        globalTimer = null;
+      }
+    };
+  }, []);
 
-const Index = () => {
-  const [time, setTime] = useState(INITIAL_TIME);
-  const [isRunning, setIsRunning] = useState(false);
-  const [distractionCount, setDistractionCount] = useState(0); 
-  const [selectedCategory, setSelectedCategory] = useState(CATEGORIES[0]);
-  
-  // TypeScript hatasını çözmek için useRef'e tip ataması yapıldı
-  const timerRef = useRef<TimerHandle>(null); 
-  const appState = useRef(AppState.currentState); 
-
-  // totalSeconds parametresine : number tipi atandı
-  const formatTime = (totalSeconds: number): string => {
-    const minutes = Math.floor(totalSeconds / 60);
-    const seconds = totalSeconds % 60;
-    return `${minutes < 10 ? '0' : ''}${minutes}:${seconds < 10 ? '0' : ''}${seconds}`;
+  const formatTime = (sec: number) => {
+    const m = Math.floor(sec / 60);
+    const s = sec % 60;
+    return `${m < 10 ? '0' : ''}${m}:${s < 10 ? '0' : ''}${s}`;
   };
 
-  // isCompleted parametresine : boolean tipi atandı
-  const finalizeSession = (isCompleted: boolean) => {
-    const focusedDuration = INITIAL_TIME - time; 
-
-    // 60 saniyeden (1 dakikadan) az odaklanma süresi kaydedilmez.
-    if (focusedDuration < 60) {
-        handleReset(false); 
-        return; 
+  const startTimer = () => {
+    if (globalTimer) return;
+    if (timeRef.current <= 0) {
+      // reset if zero
+      timeRef.current = INITIAL_TIME;
+      setDisplayTime(INITIAL_TIME);
     }
-    
-    const sessionData = {
-        id: Date.now(),
-        date: new Date().toISOString().split('T')[0], 
-        duration: Math.ceil(focusedDuration / 60), // Dakikaya çevirip yukarı yuvarla
-        category: selectedCategory,
-        distractionCount: distractionCount,
-        isCompleted: isCompleted,
+
+    setIsRunning(true);
+    globalTimer = setInterval(() => {
+      timeRef.current -= 1;
+      setDisplayTime(timeRef.current);
+
+      if (timeRef.current <= 0) {
+        stopTimer();
+        finalizeSession(true);
+      }
+    }, 1000);
+  };
+
+  const stopTimer = () => {
+    if (globalTimer) {
+      clearInterval(globalTimer);
+      globalTimer = null;
+    }
+    setIsRunning(false);
+  };
+
+  const resetTimer = (shouldFinalize = true) => {
+    const wasRunning = isRunning;
+    stopTimer();
+    if (shouldFinalize && wasRunning && timeRef.current < INITIAL_TIME) {
+      // only finalize if some time passed
+      finalizeSession(false);
+    }
+    timeRef.current = INITIAL_TIME;
+    setDisplayTime(INITIAL_TIME);
+    setDistractionCount(0);
+  };
+
+  const finalizeSession = async (isCompleted: boolean) => {
+    const focusedSeconds = INITIAL_TIME - timeRef.current;
+    if (focusedSeconds < 60) {
+      // ignore too short sessions
+      timeRef.current = INITIAL_TIME;
+      setDisplayTime(INITIAL_TIME);
+      setIsRunning(false);
+      setDistractionCount(0);
+      return;
+    }
+
+    const session: Session = {
+      id: Date.now(),
+      date: new Date().toISOString().split('T')[0],
+      duration: Math.ceil(focusedSeconds / 60),
+      category: selectedCategory,
+      distractionCount,
+      isCompleted: isCompleted,
     };
 
-    saveSession(sessionData); 
-    
+    try {
+      await saveSession(session);
+    } catch (e) {
+      console.warn('saveSession error', e);
+    }
+
     Alert.alert(
-        "Seans Özeti", 
-        `Süre: ${sessionData.duration} dakika\nKategori: ${sessionData.category}\nDağınıklık: ${sessionData.distractionCount} kez`,
-        [{ text: "Tamam" }]
+      'Seans Özeti',
+      `Süre: ${session.duration} dakika\nKategori: ${session.category}\nDağınıklık: ${session.distractionCount} kez`,
+      [{ text: 'Tamam' }]
     );
-    
-    handleReset(false); 
+
+    // reset but do not re-finalize
+    timeRef.current = INITIAL_TIME;
+    setDisplayTime(INITIAL_TIME);
+    setDistractionCount(0);
+    setIsRunning(false);
   };
 
-  const handlePause = () => {
-    if (isRunning) {
-      if (timerRef.current) {
-        clearInterval(timerRef.current); 
+  // AppState değişikliklerini güvenilir şekilde yakalama
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (next) => {
+      // aktiften arka plana/inactive geçiş -> dikkat dağınıklığı
+      if (appState.current === 'active' && next.match(/background|inactive/)) {
+        if (globalTimer) {
+          // bir dikkat dağınıklığı say
+          setDistractionCount((p) => p + 1);
+          stopTimer();
+        }
       }
-      setIsRunning(false);
-    }
-  };
 
-  // shouldFinalize parametresine : boolean tipi atandı
-  const handleReset = (shouldFinalize: boolean = true) => {
-    const wasRunning = isRunning;
-    const initialTimeCheck = time < INITIAL_TIME;
-    
-    handlePause(); 
-    
-    // Yalnızca çalışıyorsa ve bir miktar süre geçmişse oturumu sonlandır
-    if (shouldFinalize && wasRunning && initialTimeCheck) {
-        finalizeSession(false); // Başarıyla tamamlanmadı
-    }
-
-    setTime(INITIAL_TIME); 
-    setDistractionCount(0); 
-    setIsRunning(false); 
-  };
-
-  const handleStart = () => {
-    if (!isRunning && time > 0) {
-      setIsRunning(true); 
-      
-      // setInterval'dan dönen değeri doğru tipe zorlamak için tip dönüştürme yapıldı
-      timerRef.current = setInterval(() => {
-        setTime(prevTime => {
-          if (prevTime <= 1) {
-            if (timerRef.current) {
-               clearInterval(timerRef.current);
-            }
-            setIsRunning(false);
-            finalizeSession(true); // Başarıyla tamamlandı
-            return 0;
-          }
-          return prevTime - 1;
-        });
-      }, 1000) as unknown as NodeJS.Timeout; 
-    }
-  };
-  
-  // nextAppState parametresine : AppStateStatus tipi atandı (Son Hata Çözümü)
-  const handleAppStateChange = (nextAppState: AppStateStatus) => {
-    // Uygulama aktifken arka plana geçerse (dikkat dağılması)
-    if (isRunning && appState.current.match(/active/) && nextAppState === 'background') {
-      
-      handlePause(); 
-      setDistractionCount(prevCount => prevCount + 1); 
-      
-      console.log('UYARI: Dikkat Dağınıklığı tespit edildi! Sayaç duraklatıldı.');
-    }
-    
-    // Uygulama arka plandan aktif hale gelirse
-    if (!isRunning && appState.current.match(/background/) && nextAppState === 'active' && time > 0) {
-        Alert.alert(
-            "Geri Döndün!",
-            "Odaklanmaya devam etmek ister misin?",
+      // arka plandan aktif olursa (kullanıcı döndü)
+      if (
+        (appState.current.match(/background|inactive/) || appState.current === 'unknown') &&
+        next === 'active' &&
+        timeRef.current > 0
+      ) {
+        if (!isRunning && timeRef.current > 0 && timeRef.current < INITIAL_TIME) {
+          Alert.alert(
+            'Geri Döndün!',
+            'Odaklanmaya devam etmek ister misin?',
             [
-                { text: "Hayır (Sıfırla)", onPress: () => handleReset(true), style: 'cancel' }, 
-                { text: "Evet (Devam Et)", onPress: handleStart },
+              { text: 'Hayır (Sıfırla)', onPress: () => resetTimer(true), style: 'cancel' },
+              { text: 'Evet (Devam Et)', onPress: () => startTimer() },
             ],
             { cancelable: false }
-        );
-    }
-
-    appState.current = nextAppState; 
-  };
-  
-  // useEffect temizleme fonksiyonunda null kontrolü yapıldı
-  useEffect(() => {
-    const subscription = AppState.addEventListener('change', handleAppStateChange);
-    
-    return () => {
-      // Bileşen silinirse timer'ı temizle
-      if (timerRef.current) {
-        clearInterval(timerRef.current); 
+          );
+        }
       }
-      subscription.remove(); 
-    };
-  }, [isRunning, time]); 
+
+      appState.current = next;
+    });
+
+    return () => sub.remove();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isRunning]);
 
   return (
-    <View style={styles.container}>
+    <SafeAreaView style={styles.container}>
       <Text style={styles.header}>Odaklanma Takibi</Text>
 
-      {/* Kategori Seçimi */}
       <View style={styles.categoryContainer}>
         <Text style={styles.label}>Kategori Seç:</Text>
-        <Picker
-          selectedValue={selectedCategory}
-          // OnValueChange için tip ataması yapıldı
-          onValueChange={(itemValue: string) => setSelectedCategory(itemValue)} 
-          style={styles.picker}
-          enabled={!isRunning} 
+
+        <TouchableOpacity
+          style={styles.categoryButton}
+          onPress={() => {
+            if (!isRunning) setShowCategoryModal(true);
+          }}
+          activeOpacity={0.8}
         >
-          {CATEGORIES.map((cat, index) => (
-            <Picker.Item key={index} label={cat} value={cat} />
-          ))}
-        </Picker>
-      </View>
-      
-      {/* Sayaç */}
-      <View style={styles.timerContainer}>
-        <Text style={styles.timerText}>{formatTime(time)}</Text>
+          <Text style={styles.categoryButtonText}>{selectedCategory}</Text>
+        </TouchableOpacity>
+
+        <Modal visible={showCategoryModal} transparent animationType="slide">
+          <View style={styles.modalOverlay}>
+            <View style={styles.modalContainer}>
+              <Text style={styles.modalTitle}>Kategori Seç</Text>
+              {CATEGORIES.map((item, i) => (
+                <TouchableOpacity
+                  key={i}
+                  style={styles.modalItem}
+                  onPress={() => {
+                    setSelectedCategory(item);
+                    setShowCategoryModal(false);
+                  }}
+                >
+                  <Text style={styles.modalItemText}>{item}</Text>
+                </TouchableOpacity>
+              ))}
+
+              <TouchableOpacity
+                style={styles.modalCloseButton}
+                onPress={() => setShowCategoryModal(false)}
+              >
+                <Text style={styles.modalCloseText}>İptal</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </Modal>
       </View>
 
-      {/* Butonlar */}
+      <View style={styles.timerContainer}>
+        <Text style={styles.timerText}>{formatTime(displayTime)}</Text>
+      </View>
+
       <View style={styles.buttonContainer}>
-        <TouchableOpacity 
-          style={[styles.button, isRunning ? styles.pauseButton : styles.startButton]} 
-          onPress={isRunning ? handlePause : handleStart}
-          disabled={time === 0}
+        <TouchableOpacity
+          style={[styles.button, isRunning ? styles.pauseButton : styles.startButton]}
+          onPress={isRunning ? stopTimer : startTimer}
         >
           <Text style={styles.buttonText}>{isRunning ? 'Duraklat' : 'Başlat'}</Text>
         </TouchableOpacity>
-        
-        <TouchableOpacity 
-          style={styles.button} 
-          onPress={() => handleReset(true)} // Tipi sağlamak için Arrow Function kullanıldı
-        >
+
+        <TouchableOpacity style={styles.button} onPress={() => resetTimer(true)}>
           <Text style={styles.buttonText}>Sıfırla</Text>
         </TouchableOpacity>
       </View>
-      
-      {/* Dağınıklık Sayacı Geri Bildirimi */}
-      <Text style={styles.distractionText}>
-        Dikkat Dağınıklığı: {distractionCount}
-      </Text>
-    </View>
+
+      <Text style={styles.distractionText}>Dikkat Dağınıklığı: {distractionCount}</Text>
+    </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
-  container: {
-    flex: 1,
-    padding: 20,
-    alignItems: 'center',
-    backgroundColor: '#fff',
-  },
-  header: {
-    fontSize: 28,
-    fontWeight: 'bold',
-    marginVertical: 20,
-    color: '#333',
-  },
-  timerContainer: {
-    backgroundColor: '#007AFF',
-    padding: 50,
-    borderRadius: 150,
-    marginVertical: 40,
-  },
-  timerText: {
-    fontSize: 60,
-    color: '#fff',
-    fontWeight: '300',
-  },
-  buttonContainer: {
-    flexDirection: 'row',
-    marginTop: 20,
-  },
-  button: {
-    paddingVertical: 15,
-    paddingHorizontal: 30,
-    borderRadius: 8,
-    marginHorizontal: 10,
-    backgroundColor: '#6c757d',
-  },
-  startButton: {
-    backgroundColor: '#28a745',
-  },
-  pauseButton: {
-    backgroundColor: '#ffc107',
-  },
-  buttonText: {
-    color: 'white',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  categoryContainer: {
-    width: '80%',
-    marginVertical: 10,
-  },
-  label: {
-    fontSize: 16,
-    marginBottom: 5,
-    alignSelf: 'flex-start',
-  },
-  picker: {
-    height: 50,
-    width: '100%',
-  },
-  distractionText: {
-    marginTop: 30,
-    fontSize: 18,
-    color: '#dc3545',
-  },
-});
+  container: { flex: 1, padding: 20, alignItems: 'center', backgroundColor: '#fff' },
+  header: { fontSize: 28, fontWeight: 'bold', marginVertical: 20, color: '#333' },
 
-export default Index;
+  categoryContainer: { width: '100%', marginBottom: 12 },
+  label: { fontSize: 16, marginBottom: 6 },
+  categoryButton: {
+    height: 50,
+    borderRadius: 8,
+    backgroundColor: '#f2f2f2',
+    justifyContent: 'center',
+    paddingHorizontal: 15,
+    borderWidth: 1,
+    borderColor: '#ccc',
+  },
+  categoryButtonText: { fontSize: 16, color: '#333' },
+
+  modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+  modalContainer: { backgroundColor: '#fff', padding: 20, borderTopLeftRadius: 20, borderTopRightRadius: 20 },
+  modalTitle: { fontSize: 20, fontWeight: 'bold', marginBottom: 10, textAlign: 'center' },
+  modalItem: { paddingVertical: 15, borderBottomWidth: 1, borderBottomColor: '#eee' },
+  modalItemText: { fontSize: 18, textAlign: 'center' },
+  modalCloseButton: { marginTop: 15, padding: 15, backgroundColor: '#dc3545', borderRadius: 8 },
+  modalCloseText: { color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: 'bold' },
+
+  timerContainer: { backgroundColor: '#007AFF', padding: 36, borderRadius: 150, marginVertical: 30 },
+  timerText: { fontSize: 60, color: '#fff', fontWeight: '300' },
+
+  buttonContainer: { flexDirection: 'row', marginTop: 10 },
+  button: { paddingVertical: 12, paddingHorizontal: 22, borderRadius: 8, marginHorizontal: 8, backgroundColor: '#6c757d' },
+  startButton: { backgroundColor: '#28a745' },
+  pauseButton: { backgroundColor: '#ffc107' },
+  buttonText: { color: 'white', fontSize: 18, fontWeight: 'bold' },
+
+  distractionText: { marginTop: 24, fontSize: 18, color: '#dc3545' },
+});
