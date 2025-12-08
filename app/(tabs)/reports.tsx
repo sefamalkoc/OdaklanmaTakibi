@@ -1,19 +1,24 @@
 // app/(tabs)/reports.tsx
-import React, { useEffect, useMemo, useState } from 'react';
+import { useFocusEffect } from 'expo-router';
+import React, { useMemo, useState } from 'react';
 import { Dimensions, ScrollView, Text, View } from 'react-native';
 import { BarChart, PieChart } from 'react-native-chart-kit';
 import { getSessions, Session } from '../../src/utils/Storage';
 
+
 export default function Reports() {
   const [sessions, setSessions] = useState<Session[]>([]);
 
-  useEffect(() => {
+  useFocusEffect(
+  React.useCallback(() => {
     const load = async () => {
       const s = await getSessions();
       setSessions(s);
     };
     load();
-  }, []);
+  }, [])
+);
+
 
   // helper: last 7 days labels and totals (minutes)
   const { last7Labels, last7Values, categoryData, todayTotal, totalMinutes, totalDistractions } = useMemo(() => {
