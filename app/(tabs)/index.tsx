@@ -28,7 +28,16 @@ export default function Index() {
   const timeRef = useRef<number>(INITIAL_TIME);
   const appState = useRef<AppStateStatus>(AppState.currentState);
 
- 
+  useEffect(() => {
+    // cleanup on unmount
+    return () => {
+      if (globalTimer) {
+        clearInterval(globalTimer);
+        globalTimer = null;
+      }
+    };
+  }, []);
+
   const formatTime = (sec: number) => {
     const m = Math.floor(sec / 60);
     const s = sec % 60;
