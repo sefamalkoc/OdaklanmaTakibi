@@ -1,4 +1,4 @@
-// app/(tabs)/reports.tsx
+
 import { useFocusEffect } from 'expo-router';
 import React, { useMemo, useState } from 'react';
 import { Dimensions, ScrollView, Text, View } from 'react-native';
