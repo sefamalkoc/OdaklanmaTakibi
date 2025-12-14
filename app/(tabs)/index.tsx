@@ -64,7 +64,11 @@ export default function Index() {
         const focusedSeconds = INITIAL_TIME - timeRef.current;
         
         if (focusedSeconds < 60) {
-            console.log('Oturum süresi çok kısa, kaydedilmedi.');
+            Alert.alert(
+                'Süre Çok Kısa',
+                '1 dakikadan kısa süren odaklanma seansları kaydedilmemektedir.',
+                [{ text: 'Tamam' }]
+            );
             return;
         }
 
@@ -291,5 +295,5 @@ const styles = StyleSheet.create({
     pauseButton: { backgroundColor: '#ffc107' },
     buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold', textAlign: 'center' },
 
-    distractionText: { marginTop: 24, fontSize: 18, color: '#dc3545' },
+    distractionText: { marginTop: 24, fontSize: 18, color: '#d2293aff' },
 });
