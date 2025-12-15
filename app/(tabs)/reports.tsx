@@ -10,14 +10,14 @@ export default function Reports() {
   const [sessions, setSessions] = useState<Session[]>([]);
 
   useFocusEffect(
-  React.useCallback(() => {
-    const load = async () => {
-      const s = await getSessions();
-      setSessions(s);
-    };
-    load();
-  }, [])
-);
+    React.useCallback(() => {
+      const load = async () => {
+        const s = await getSessions();
+        setSessions(s);
+      };
+      load();
+    }, [])
+  );
 
 
   // helper: last 7 days labels and totals (minutes)
@@ -47,15 +47,21 @@ export default function Reports() {
 
     // category aggregation
     const catMap: Record<string, number> = {};
+    let totalDurationForPie = 0; // NEW: Track total for percentage
+
     sessions.forEach((s) => {
       catMap[s.category] = (catMap[s.category] || 0) + s.duration;
+      totalDurationForPie += s.duration; // NEW
     });
 
     const pieData = Object.keys(catMap).map((k, idx) => {
       const colorList = ['#4e73df', '#1cc88a', '#36b9cc', '#f6c23e', '#e74a3b'];
+      const val = catMap[k];
+      const percentage = totalDurationForPie > 0 ? ((val / totalDurationForPie) * 100).toFixed(1) : 0; // NEW
+
       return {
-        name: k,
-        population: catMap[k],
+        name: `%${percentage} ${k}`,
+        population: val,
         color: colorList[idx % colorList.length],
         legendFontColor: '#000',
         legendFontSize: 12,

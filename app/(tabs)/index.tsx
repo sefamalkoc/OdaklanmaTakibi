@@ -1,32 +1,35 @@
 
 import React, { useEffect, useRef, useState } from 'react';
 import {
-  Alert,
-  AppState,
-  AppStateStatus,
-  Modal,
-  StyleSheet,
-  Text,
-  TouchableOpacity,
-  View
+    Alert,
+    AppState,
+    AppStateStatus,
+    Modal,
+    StyleSheet,
+    Text,
+    TouchableOpacity,
+    View
 } from 'react-native';
 
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { saveSession, Session } from '../../src/utils/Storage';
 
-const INITIAL_TIME = 25 * 60;
+import { Ionicons } from '@expo/vector-icons';
+
+const DEFAULT_TIME = 25 * 60;
 const CATEGORIES = ['Ders Çalışma', 'Kodlama', 'Proje', 'Kitap Okuma'];
 
 let globalTimer: ReturnType<typeof setInterval> | null = null;
 
 export default function Index() {
-    const [displayTime, setDisplayTime] = useState<number>(INITIAL_TIME);
+    const [initialTime, setInitialTime] = useState<number>(DEFAULT_TIME);
+    const [displayTime, setDisplayTime] = useState<number>(DEFAULT_TIME);
     const [isRunning, setIsRunning] = useState<boolean>(false);
     const [distractionCount, setDistractionCount] = useState<number>(0);
     const [selectedCategory, setSelectedCategory] = useState<string>(CATEGORIES[0]);
     const [showCategoryModal, setShowCategoryModal] = useState<boolean>(false);
 
-    const timeRef = useRef<number>(INITIAL_TIME);
+    const timeRef = useRef<number>(DEFAULT_TIME);
     const appState = useRef<AppStateStatus>(AppState.currentState);
 
     useEffect(() => {
@@ -51,18 +54,18 @@ export default function Index() {
         }
         setIsRunning(false);
     };
-    
+
     const performCleanReset = () => {
         stopTimer();
-        timeRef.current = INITIAL_TIME;
-        setDisplayTime(INITIAL_TIME);
+        timeRef.current = initialTime;
+        setDisplayTime(initialTime);
         setDistractionCount(0);
         setIsRunning(false);
     };
 
     const finalizeSession = async (isCompleted: boolean) => {
-        const focusedSeconds = INITIAL_TIME - timeRef.current;
-        
+        const focusedSeconds = initialTime - timeRef.current;
+
         if (focusedSeconds < 60) {
             Alert.alert(
                 'Süre Çok Kısa',
@@ -95,26 +98,26 @@ export default function Index() {
     };
 
     const resetTimer = () => {
-        const isSessionStarted = timeRef.current < INITIAL_TIME;
-        
+        const isSessionStarted = timeRef.current < initialTime;
+
         if (isSessionStarted) {
-             Alert.alert(
+            Alert.alert(
                 "Oturumu Sonlandır",
                 "Odaklanma süreniz devam ediyor. Bu oturumu kaydetmek istiyor musun? Kaydetmezseniz ilerlemeniz silinir.",
                 [
-                    { 
-                        text: "Kaydet ve Sıfırla", 
+                    {
+                        text: "Kaydet ve Sıfırla",
                         onPress: async () => {
                             stopTimer();
-                            await finalizeSession(false); 
+                            await finalizeSession(false);
                             performCleanReset();
                         },
                         style: 'default'
                     },
-                    { 
-                        text: "İlerleme Sil", 
-                        onPress: performCleanReset, 
-                        style: 'destructive' 
+                    {
+                        text: "İlerleme Sil",
+                        onPress: performCleanReset,
+                        style: 'destructive'
                     },
                     {
                         text: "İptal",
@@ -127,7 +130,7 @@ export default function Index() {
                     }
                 ]
             );
-            stopTimer(); 
+            stopTimer();
         } else {
             performCleanReset();
         }
@@ -135,11 +138,11 @@ export default function Index() {
 
 
     const startTimer = () => {
-        if (globalTimer && isRunning) return; 
+        if (globalTimer && isRunning) return;
 
         if (timeRef.current <= 0) {
-            timeRef.current = INITIAL_TIME;
-            setDisplayTime(INITIAL_TIME);
+            timeRef.current = initialTime;
+            setDisplayTime(initialTime);
         }
 
         setIsRunning(true);
@@ -160,7 +163,7 @@ export default function Index() {
             if (appState.current === 'active' && next.match(/background|inactive/)) {
                 if (globalTimer) {
                     setDistractionCount((p) => p + 1);
-                    stopTimer(); 
+                    stopTimer();
                 }
             }
 
@@ -169,12 +172,12 @@ export default function Index() {
                 next === 'active' &&
                 timeRef.current > 0
             ) {
-                if (!isRunning && timeRef.current > 0 && timeRef.current < INITIAL_TIME) {
+                if (!isRunning && timeRef.current > 0 && timeRef.current < initialTime) {
                     Alert.alert(
                         'Geri Döndün!',
                         'Odaklanmaya devam etmek ister misin?',
                         [
-                            { text: 'Hayır (Sıfırla)', onPress: resetTimer, style: 'cancel' }, 
+                            { text: 'Hayır (Sıfırla)', onPress: resetTimer, style: 'cancel' },
                             { text: 'Evet (Devam Et)', onPress: () => startTimer() },
                         ],
                         { cancelable: false }
@@ -186,7 +189,18 @@ export default function Index() {
         });
 
         return () => sub.remove();
-    }, [isRunning]);
+    }, [isRunning, initialTime]);
+
+    const handleDurationChange = (change: number) => {
+        if (isRunning || displayTime !== initialTime) return;
+
+        const newTime = initialTime + change;
+        if (newTime >= 5 * 60 && newTime <= 120 * 60) {
+            setInitialTime(newTime);
+            setDisplayTime(newTime);
+            timeRef.current = newTime;
+        }
+    };
 
     return (
         <SafeAreaView style={styles.container}>
@@ -234,7 +248,25 @@ export default function Index() {
             </View>
 
             <View style={styles.timerContainer}>
-                <Text style={styles.timerText}>{formatTime(displayTime)}</Text>
+                <View style={styles.timerControls}>
+                    <TouchableOpacity
+                        onPress={() => handleDurationChange(-5 * 60)}
+                        disabled={isRunning || displayTime !== initialTime}
+                        style={styles.adjustButton}
+                    >
+                        <Ionicons name="remove-circle-outline" size={40} color={(isRunning || displayTime !== initialTime) ? "rgba(255,255,255,0.5)" : "#fff"} />
+                    </TouchableOpacity>
+
+                    <Text style={styles.timerText}>{formatTime(displayTime)}</Text>
+
+                    <TouchableOpacity
+                        onPress={() => handleDurationChange(5 * 60)}
+                        disabled={isRunning || displayTime !== initialTime}
+                        style={styles.adjustButton}
+                    >
+                        <Ionicons name="add-circle-outline" size={40} color={(isRunning || displayTime !== initialTime) ? "rgba(255,255,255,0.5)" : "#fff"} />
+                    </TouchableOpacity>
+                </View>
             </View>
 
             <View style={styles.buttonContainer}>
@@ -246,10 +278,10 @@ export default function Index() {
                     <Text style={styles.buttonText}>{isRunning ? 'Duraklat' : 'Başlat'}</Text>
                 </TouchableOpacity>
 
-                <TouchableOpacity 
-                    style={[styles.button, styles.largeButton]} 
-                    onPress={resetTimer} 
-                    disabled={timeRef.current === INITIAL_TIME}
+                <TouchableOpacity
+                    style={[styles.button, styles.largeButton]}
+                    onPress={resetTimer}
+                    disabled={timeRef.current === initialTime}
                 >
                     <Text style={styles.buttonText}>Sıfırla</Text>
                 </TouchableOpacity>
@@ -285,12 +317,14 @@ const styles = StyleSheet.create({
     modalCloseButton: { marginTop: 15, padding: 15, backgroundColor: '#dc3545', borderRadius: 8 },
     modalCloseText: { color: '#fff', textAlign: 'center', fontSize: 16, fontWeight: 'bold' },
 
-    timerContainer: { backgroundColor: '#007AFF', padding: 36, borderRadius: 150, marginVertical: 30 },
-    timerText: { fontSize: 60, color: '#fff', fontWeight: '300' },
+    timerContainer: { backgroundColor: '#007AFF', padding: 20, borderRadius: 150, marginVertical: 30, width: 300, height: 300, justifyContent: 'center', alignItems: 'center' },
+    timerControls: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+    timerText: { fontSize: 60, color: '#fff', fontWeight: '300', marginHorizontal: 10, fontVariant: ['tabular-nums'] },
+    adjustButton: { padding: 5 },
 
     buttonContainer: { flexDirection: 'row', marginTop: 10, width: '100%', justifyContent: 'center' },
     button: { paddingVertical: 12, paddingHorizontal: 18, borderRadius: 8, marginHorizontal: 8, backgroundColor: '#6c757d' },
-    largeButton: { flex: 1, maxWidth: 150, paddingHorizontal: 0 }, 
+    largeButton: { flex: 1, maxWidth: 150, paddingHorizontal: 0 },
     startButton: { backgroundColor: '#28a745' },
     pauseButton: { backgroundColor: '#ffc107' },
     buttonText: { color: 'white', fontSize: 16, fontWeight: 'bold', textAlign: 'center' },

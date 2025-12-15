@@ -1,50 +1,61 @@
-# Welcome to your Expo app 👋
+# Odaklanma Takibi (Focus Tracker)
 
-This is an [Expo](https://expo.dev) project created with [`create-expo-app`](https://www.npmjs.com/package/create-expo-app).
+"Odaklanma Takibi", kullanıcıların verimliliklerini artırmak amacıyla çalışma sürelerini izlemelerini (Pomodoro vb.), kategorize etmelerini ve grafiksel raporlarla analiz etmelerini sağlayan, React Native ve Expo altyapısı ile geliştirilmiş bir mobil uygulamadır.
 
-## Get started
+## Özellikler
 
-1. Install dependencies
+- **Odaklanma Sayacı**: Dikkat dağıtıcı unsurlar olmadan çalışmanızı sağlayan geri sayım sayacı.
+- **Kategori Sistemi**: Yaptığınız işi (Ders Çalışma, Kodlama, Kitap Okuma vb.) kategorize etme imkanı.
+- **Kesinti Takibi**: Uygulama arka plana atıldığında veya odaklanma bozulduğunda dikkat dağınıklığı sayısının takibi.
+- **Raporlama**: Günlük ve haftalık çalışma istatistikleri, kategori dağılım grafikleri.
+- **Kalıcı Depolama**: Geçmiş çalışma verilerinin cihazda saklanması.
 
-   ```bash
-   npm install
-   ```
+## Kurulum ve Çalıştırma
 
-2. Start the app
+Bu projeyi yerel ortamınızda çalıştırmak için aşağıdaki adımları izleyin.
 
-   ```bash
-   npx expo start
-   ```
+### Gereksinimler
 
-In the output, you'll find options to open the app in a
+- [Node.js](https://nodejs.org/) (LTS sürümü önerilir)
+- [Expo Go](https://expo.dev/go) uygulaması (Telefonunuzda test etmek için) veya Android Studio/Xcode (Emülatör için)
 
-- [development build](https://docs.expo.dev/develop/development-builds/introduction/)
-- [Android emulator](https://docs.expo.dev/workflow/android-studio-emulator/)
-- [iOS simulator](https://docs.expo.dev/workflow/ios-simulator/)
-- [Expo Go](https://expo.dev/go), a limited sandbox for trying out app development with Expo
-
-You can start developing by editing the files inside the **app** directory. This project uses [file-based routing](https://docs.expo.dev/router/introduction).
-
-## Get a fresh project
-
-When you're ready, run:
+### Adım 1: Depoyu Klonlayın
 
 ```bash
-npm run reset-project
+git clone https://github.com/sefamalkoc/OdaklanmaTakibi.git
+cd OdaklanmaTakibi
 ```
 
-This command will move the starter code to the **app-example** directory and create a blank **app** directory where you can start developing.
+### Adım 2: Bağımlılıkları Yükleyin
 
-## Learn more
+Proje dizininde terminali açın ve gerekli paketleri yükleyin:
 
-To learn more about developing your project with Expo, look at the following resources:
+```bash
+npm install
+```
 
-- [Expo documentation](https://docs.expo.dev/): Learn fundamentals, or go into advanced topics with our [guides](https://docs.expo.dev/guides).
-- [Learn Expo tutorial](https://docs.expo.dev/tutorial/introduction/): Follow a step-by-step tutorial where you'll create a project that runs on Android, iOS, and the web.
+### Adım 3: Uygulamayı Başlatın
 
-## Join the community
+```bash
+npx expo start
+```
 
-Join our community of developers creating universal apps.
+Bu komut Expo geliştirme sunucusunu başlatacaktır. Çıkan QR kodunu telefonunuzdaki **Expo Go** uygulaması ile okutarak veya terminalde `a` (Android) veya `i` (iOS) tuşlarına basarak emülatörde çalıştırabilirsiniz.
 
-- [Expo on GitHub](https://github.com/expo/expo): View our open source platform and contribute.
-- [Discord community](https://chat.expo.dev): Chat with Expo users and ask questions.
+## Proje Yapısı
+
+- **`app/`**: Uygulama ekranları ve navigasyon (Expo Router).
+- **`src/`**: Yardımcı fonksiyonlar ve iş mantığı.
+- **`components/`**: UI bileşenleri.
+- **`assets/`**: Görseller ve font dosyaları.
+
+## Teknoloji Yığını
+
+- **Framework**: React Native (Expo)
+- **Dil**: TypeScript
+- **Navigasyon**: Expo Router
+- **Grafikler**: react-native-chart-kit
+- **Depolama**: AsyncStorage
+
+---
+Geliştirici: Sefa Malkoç
